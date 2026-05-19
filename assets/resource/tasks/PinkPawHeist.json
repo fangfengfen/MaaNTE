@@ -3,12 +3,14 @@
         {
             "name": "粉爪大劫案",
             "entry": "PinkPawHeist_Main",
-            "description": "自动刷取粉爪大劫案，需要[color:red]“桌面端-前台”[/color]控制器。",
+            "description": "自动刷取粉爪大劫案，需要桌面端-前台控制器。",
             "option": [
                 "PinkPawHeist_Scheme",
-                "PinkPawHeist_LoopCount"
+                "PinkPawHeist_LoopInfinite"
             ],
-            "controller": ["Win32-Front"]
+            "controller": [
+                "Win32-Front"
+            ]
         }
     ],
     "option": {
@@ -19,7 +21,7 @@
             "inputs": [
                 {
                     "name": "count",
-                    "default": "1",
+                    "default": "10",
                     "pipeline_type": "int",
                     "verify": "^\\d+$"
                 }
@@ -29,6 +31,30 @@
                     "max_hit": "{count}"
                 }
             }
+        },
+        "PinkPawHeist_LoopInfinite": {
+            "type": "switch",
+            "label": "无限循环",
+            "description": "启用后将无限循环刷取，直到手动停止(F11)。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "label": "启用",
+                    "pipeline_override": {
+                        "PinkPawHeist_CoreSequence": {
+                            "max_hit": 999999
+                        }
+                    }
+                },
+                {
+                    "name": "No",
+                    "label": "禁用",
+                    "option": [
+                        "PinkPawHeist_LoopCount"
+                    ]
+                }
+            ]
         },
         "PinkPawHeist_Scheme": {
             "type": "select",
@@ -41,19 +67,12 @@
                     "label": "方案一",
                     "pipeline_override": {
                         "PinkPawHeist_ExecuteScheme": {
-                            "next": ["PinkPawHeist_Scheme1"]
+                            "next": [
+                                "PinkPawHeist_Scheme1"
+                            ]
                         }
                     }
-                }//,
-                //{
-                //    "name": "Core2",
-                //    "label": "方案二",
-                //    "pipeline_override": {
-                //        "PinkPawHeist_ExecuteScheme": {
-                //            "next": ["PinkPawHeist_Scheme2_Actions"]
-                //        }
-                //    }
-                //}
+                }
             ]
         }
     }
