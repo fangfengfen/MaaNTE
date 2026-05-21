@@ -572,8 +572,8 @@ def agent(is_dev_mode=False):
         if is_dev_mode:
             from utils.logger import change_console_level
 
-            change_console_level("DEBUG")
-            logger.info("开发模式：日志等级已设置为DEBUG")
+            change_console_level("WARNING")
+            logger.info("日志等级已设置为WARNING")
 
 
         from maa.agent.agent_server import AgentServer

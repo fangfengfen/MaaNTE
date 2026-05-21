@@ -2,6 +2,7 @@ from .AutoFish.auto_fish_new import *
 from .AutoFish.auto_fish import *
 from .AutoFish.auto_buy_fish_bait import *
 from .AutoFish.auto_sell_fish import *
+from .AutoFish.fish_catch_logger import *
 from .auto_make_coffee import *
 from .rhythm.feats.play import *
 from .rhythm.feats.repeat_decision import *
@@ -27,6 +28,8 @@ __all__ = [
     "AutoFish",
     "AutoBuyFishBait",
     "AutoSellFish",
+    "FishCatchLogger",
+    "FishCatchSummary",
     "ClickOverride",
     "AutoTetris",
     "AutoRhythmPlay",
@@ -36,6 +39,7 @@ __all__ = [
     "PinkPawHeistScheme1Action",
     "PinkPawHeistScheme2Action",
     "PinkPawRewardSummary",
+    "PinkPawReadReward",
     "AutoFishWithoutCV",
     "SoundDodgeAction",
     "AutoFScroll",

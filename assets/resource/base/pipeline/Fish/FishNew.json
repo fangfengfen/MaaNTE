@@ -93,7 +93,7 @@
         ]
     },
     "FishNewGameResult": {
-        "desc": "检查钓鱼结果，并且关闭",
+        "desc": "检查钓鱼结果，识别鱼名并关闭",
         "recognition": "OCR",
         "roi": [
             440,
@@ -104,19 +104,13 @@
         "expected": [
             "点击空白区域关闭"
         ],
-        "action": "ClickKey",
-        "key": [
-            27 // Esc
-        ],
-        "focus": {
-            "Node.Action.Succeeded": "钓到鱼了！"
-        }
+        "action": "Custom",
+        "custom_action": "fish_catch_logger"
     },
     "FishNewTaskExit": {
-        "desc": "钓鱼任务完成",
-        "focus": {
-            "Node.Action.Succeeded": "钓鱼任务结束"
-        }
+        "desc": "钓鱼任务完成，上报收益汇总",
+        "action": "Custom",
+        "custom_action": "fish_catch_summary"
     },
     "FishNewBaitLack": {
         "desc": "缺少鱼饵",
