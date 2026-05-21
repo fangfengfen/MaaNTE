@@ -962,8 +962,7 @@ class PinkPawHeistScheme2Action(CustomAction):
             ah.delay(1500, check_reward=False)
             evac_result = ah.ctx.run_task("PinkPawHeist_EvacuateOnce")
             if evac_result.status.succeeded:
-                ah.delay(10000, check_reward=False)
-                notify_pinkpaw_reward(ah.ctx, success=True)
+                ah.delay(8000, check_reward=False)
             else:
                 # ---------- 最后撤离2 ----------
 
@@ -1009,8 +1008,7 @@ class PinkPawHeistScheme2Action(CustomAction):
                 ah.delay(1500, check_reward=False)
                 evac_result = ah.ctx.run_task("PinkPawHeist_EvacuateOnce")
                 if evac_result.status.succeeded:
-                    ah.delay(10000, check_reward=False)
-                    notify_pinkpaw_reward(ah.ctx, success=True)
+                    ah.delay(8000, check_reward=False)
                 else:
                     # ---------- 最后撤离3 ----------
                     ah.delay(500)
@@ -1057,8 +1055,7 @@ class PinkPawHeistScheme2Action(CustomAction):
                     ah.delay(1500, check_reward=False)
                     evac_result = ah.ctx.run_task("PinkPawHeist_EvacuateOnce")
                     if evac_result.status.succeeded:
-                        ah.delay(10000, check_reward=False)
-                        notify_pinkpaw_reward(ah.ctx, success=True)
+                        ah.delay(8000, check_reward=False)
                     else:
                         notify_pinkpaw_reward(ah.ctx, success=False)
                         self._exit_to_main(ah)
@@ -1088,8 +1085,9 @@ class PinkPawHeistScheme2Action(CustomAction):
                 ah.delay(2000, check_reward=False)
             evac_result = ah.ctx.run_task("PinkPawHeist_Once")
             if evac_result.status.succeeded:
-                ah.delay(10000, check_reward=False)
+                ah.delay(2000, check_reward=False)
                 notify_pinkpaw_reward(ah.ctx, success=True)
+                ah.delay(8000, check_reward=False)
             else:
                 notify_pinkpaw_reward(ah.ctx, success=False)
 

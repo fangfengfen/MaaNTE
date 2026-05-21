@@ -73,7 +73,7 @@
         "next": []
     },
     "PinkPawHeist_EvacuateOnce": {
-        "desc": "撤离确认",
+        "desc": "撤离确认（先读取收益再点击）",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -88,7 +88,10 @@
             }
         },
         "action": {
-            "type": "Click"
+            "type": "Custom",
+            "param": {
+                "custom_action": "pinkpaw_read_reward"
+            }
         },
         "timeout": 5000,
         "next": []
