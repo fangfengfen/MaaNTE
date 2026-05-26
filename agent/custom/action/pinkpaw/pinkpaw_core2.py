@@ -1,3 +1,7 @@
+import os
+import time as _time
+import traceback
+
 from maa.agent.agent_server import AgentServer
 from maa.custom_action import CustomAction
 from maa.context import Context
@@ -46,11 +50,87 @@ def _is_hit(result) -> bool:
 
 
 class ActionHelper:
+    # 行动链路日志最大保留条目数
+    _MAX_TRAIL_SIZE = 80
+
     def __init__(self, ctx: Context):
         self.ctx = ctx
         self.mx, self.my = 640, 360
         self.last_check_time = 0  # 增加记录上次检测时间的变量
         self.fail_count = 0
+        # --- 行动链路追踪 ---
+        self._trail: list[str] = []  # 记录近期操作
+        self._trail_start = _time.monotonic()
+        self._current_phase = "初始化"  # 当前阶段标签
+
+    def set_phase(self, phase: str):
+        """标记当前执行阶段（用于失败时定位）"""
+        self._current_phase = phase
+        self._log_trail(f"[阶段] {phase}")
+
+    def _log_trail(self, msg: str):
+        """记录一条行动链路"""
+        elapsed = _time.monotonic() - self._trail_start
+        entry = f"{elapsed:.1f}s {msg}"
+        self._trail.append(entry)
+        if len(self._trail) > self._MAX_TRAIL_SIZE:
+            self._trail = self._trail[-self._MAX_TRAIL_SIZE:]
+
+    def _save_failure_screenshot(self, reason: str) -> str:
+        """失败时截图保存到本地并返回路径"""
+        try:
+            import numpy as np
+            screenshot_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "debug", "pinkpaw_failures")
+            os.makedirs(screenshot_dir, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"fail_{timestamp}.png"
+            filepath = os.path.join(screenshot_dir, filename)
+
+            image = self.ctx.tasker.controller.post_screencap().wait().get()
+            if image is not None and hasattr(image, 'shape'):
+                import cv2
+                cv2.imwrite(filepath, image)
+                return filepath
+        except Exception as e:
+            print(f"[PinkPawHeist] 截图保存失败: {e}")
+        return ""
+
+    def report_failure(self, reason: str):
+        """失败时上报行动链路和截图"""
+        screenshot_path = self._save_failure_screenshot(reason)
+
+        # 取最后30条链路
+        recent_trail = self._trail[-30:]
+        trail_text = "\n".join(recent_trail)
+
+        # 构建上报消息
+        msg_parts = [
+            f"❌ 粉爪失败: {reason}",
+            f"阶段: {self._current_phase}",
+        ]
+        if screenshot_path:
+            msg_parts.append(f"截图: {os.path.basename(screenshot_path)}")
+        msg_parts.append(f"--- 最近行动链路 ---\n{trail_text}")
+        full_msg = "\n".join(msg_parts)
+
+        # 通过 focus 推送（截断到合理长度）
+        display_msg = full_msg[:500] if len(full_msg) > 500 else full_msg
+        try:
+            self.ctx.override_pipeline({
+                "PinkPawHeist_FailReport": {
+                    "recognition": "DirectHit",
+                    "action": "DoNothing",
+                    "focus": {"Node.Action.Starting": display_msg}
+                }
+            })
+            self.ctx.run_task("PinkPawHeist_FailReport")
+        except Exception:
+            pass
+
+        # 同时打印完整链路到控制台
+        print(f"\n{'='*60}")
+        print(full_msg)
+        print(f"{'='*60}\n")
 
     def is_stopping(self) -> bool:
         tasker = getattr(self.ctx, "tasker", None)
@@ -113,12 +193,15 @@ class ActionHelper:
         return ret
 
     def click_key(self, key_str):
+        self._log_trail(f"click_key({key_str})")
         return self._call_key("ClickKey", key_str)
 
     def key_down(self, key_str):
+        self._log_trail(f"key_down({key_str})")
         return self._call_key("KeyDown", key_str)
 
     def key_up(self, key_str):
+        self._log_trail(f"key_up({key_str})")
         return self._call_key("KeyUp", key_str)
 
     # ---------- 鼠标操作 ----------
@@ -151,6 +234,7 @@ class ActionHelper:
 
     def click(self, x, y):
         self.raise_if_stopped()
+        self._log_trail(f"click({x},{y})")
         self.move_to(x, y)
         override = {
             "PinkPawHeist_Click": {
@@ -177,16 +261,28 @@ class ActionHelper:
         return False
 
     def wait_gate(self, timeout=10000):
-        return self._check_until("CheckGateOnce", timeout)
+        self._log_trail(f"wait_gate(timeout={timeout})")
+        result = self._check_until("CheckGateOnce", timeout)
+        self._log_trail(f"  -> {'命中' if result else '超时'}")
+        return result
 
     def wait_gate2(self, timeout=10000):
-        return self._check_until("CheckGate2Once", timeout)
+        self._log_trail(f"wait_gate2(timeout={timeout})")
+        result = self._check_until("CheckGate2Once", timeout)
+        self._log_trail(f"  -> {'命中' if result else '超时'}")
+        return result
 
     def wait_door(self, timeout=10000):
-        return self._check_until("CheckDoorOnce", timeout)
+        self._log_trail(f"wait_door(timeout={timeout})")
+        result = self._check_until("CheckDoorOnce", timeout)
+        self._log_trail(f"  -> {'命中' if result else '超时'}")
+        return result
 
     def wait_evacuate(self, timeout=15000):
-        return self._check_until("CheckEvacuateOnce", timeout)
+        self._log_trail(f"wait_evacuate(timeout={timeout})")
+        result = self._check_until("CheckEvacuateOnce", timeout)
+        self._log_trail(f"  -> {'命中' if result else '超时'}")
+        return result
 
     # ---------- 怪物检测与战斗 ----------
 
@@ -233,6 +329,8 @@ class ActionHelper:
     ) -> bool:
         """打怪主循环，直到一段时间找不到怪退出"""
         import time
+
+        self._log_trail(f"fight_until_no_monster(timeout={timeout_no_monster})")
 
         if wait_for_monster:
             if not self.wait_monster(timeout=timeout_no_monster):
@@ -327,6 +425,7 @@ class PinkPawHeistScheme2Action(CustomAction):
         ah = ActionHelper(context)
         try:
             current_ctrl = ah.ctx.tasker.controller
+            ah.set_phase("起步移动至G层入口")
             for _ in range(3):
                 ah.click_key("1")
                 ah.delay(200)
@@ -355,6 +454,7 @@ class PinkPawHeistScheme2Action(CustomAction):
             ah.key_up("S")
 
             # ----- 第一场战斗（怪堆） -----
+            ah.set_phase("G层第一场战斗")
             ah.run_task("PinkPawHeist_Core1_Log_FightG1")
             for _ in range(3):
                 ah.click_key("1")
@@ -372,6 +472,7 @@ class PinkPawHeistScheme2Action(CustomAction):
                 loot=False,
                 attack_cycles=3,
             ):
+                ah.report_failure("G层第一场战斗未检测到怪物")
                 self._exit_to_main(ah)
                 return CustomAction.RunResult(success=True)
 
@@ -438,6 +539,7 @@ class PinkPawHeistScheme2Action(CustomAction):
             ah.key_up("E")
             ah.delay(200)
             ah.run_task("PinkPawHeist_Core1_Log_FightG2")
+            ah.set_phase("G层第二场战斗")
 
             ah.fight_until_no_monster(
                 timeout_no_monster=10000,
@@ -448,6 +550,7 @@ class PinkPawHeistScheme2Action(CustomAction):
             )
 
             # ---------- 战斗结束后移动至电梯 ----------
+            ah.set_phase("战斗结束→移动至电梯")
             ah.key_down("W")
             ah.delay(3000)
             ah.key_up("W")
@@ -488,6 +591,7 @@ class PinkPawHeistScheme2Action(CustomAction):
             ah.delay(300)
 
             if not ah.wait_door():
+                ah.report_failure("未检测到开门提示")
                 self._exit_to_main(ah)
                 return CustomAction.RunResult(success=True)
 
@@ -513,6 +617,7 @@ class PinkPawHeistScheme2Action(CustomAction):
             ah.delay(200)
 
             # ---------- 移动至G1办公层与电梯 ----------
+            ah.set_phase("移动至G1办公层与电梯")
             ah.key_down("D")
             ah.delay(4900)
             ah.key_up("D")
@@ -537,6 +642,7 @@ class PinkPawHeistScheme2Action(CustomAction):
             ah.delay(100)
 
             # ---------- 移动至G1激光层 ----------
+            ah.set_phase("移动至G1激光层")
             ah.key_down("W")
             ah.delay(7300)
             # 开始躲激光
@@ -629,6 +735,7 @@ class PinkPawHeistScheme2Action(CustomAction):
             ah.key_up("D")
             ah.delay(200)
             if not ah.wait_gate2():
+                ah.report_failure("未检测到二层铁门")
                 self._exit_to_main(ah)
                 return CustomAction.RunResult(success=True)
             ah.click_key("F")
@@ -645,6 +752,7 @@ class PinkPawHeistScheme2Action(CustomAction):
             ah.delay(1000, check_reward=False)
 
             # ---------- 移动至藏品层 ----------
+            ah.set_phase("移动至藏品层")
             ah.key_down("W")
             ah.delay(7000)
             ah.key_up("W")
@@ -1044,6 +1152,7 @@ class PinkPawHeistScheme2Action(CustomAction):
             ah.key_up("S")
 
             # ---------- 最后撤离1 ----------
+            ah.set_phase("撤离阶段1")
 
             ah.key_down("S")
             ah.delay(3000)
@@ -1068,6 +1177,7 @@ class PinkPawHeistScheme2Action(CustomAction):
                 ah.delay(POST_REWARD_DELAY_MS, check_reward=False)
             else:
                 # ---------- 最后撤离2 ----------
+                ah.set_phase("撤离阶段2")
 
                 ah.key_down("D")
                 ah.delay(6100)
@@ -1116,6 +1226,7 @@ class PinkPawHeistScheme2Action(CustomAction):
                     ah.delay(POST_REWARD_DELAY_MS, check_reward=False)
                 else:
                     # ---------- 最后撤离3 ----------
+                    ah.set_phase("撤离阶段3")
                     ah.delay(500)
                     ah.key_down("A")
                     ah.delay(3000)
@@ -1164,6 +1275,7 @@ class PinkPawHeistScheme2Action(CustomAction):
                         notify_pinkpaw_reward(ah.ctx, success=True)
                         ah.delay(POST_REWARD_DELAY_MS, check_reward=False)
                     else:
+                        ah.report_failure("三次撤离均失败")
                         notify_pinkpaw_reward(ah.ctx, success=False)
                         self._exit_to_main(ah)
                         return CustomAction.RunResult(success=True)
@@ -1177,6 +1289,7 @@ class PinkPawHeistScheme2Action(CustomAction):
         except StopActionException as e:
             # 捕获到终止异常，直接结束
             print(f"[PinkPawHeist] 流程提前终止: {e}")
+            ah.report_failure(f"流程提前终止: {e}")
             # --- 安全垫：强制松开所有方向键 ---
             ah.key_up("W")
             ah.delay(50)
