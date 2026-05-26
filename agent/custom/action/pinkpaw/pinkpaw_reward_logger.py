@@ -1,162 +1,234 @@
 """
 粉爪大劫案 收益统计
-- 撤离成功后截图OCR识别粉爪积分和爪爪币
-- 累计统计并通过 focus 推送到前端
+- 撤离成功时累计方斯和粉爪币
+- 撤离失败不计
+- 通过 focus 推送到前端
 """
 
 import re
-import time
+
 from maa.agent.agent_server import AgentServer
 from maa.custom_action import CustomAction
 from maa.context import Context
+from maa.pipeline import JOCR, JRecognitionType
+
+# 每次撤离成功的固定收益（可根据实际调整）
+REWARD_PER_RUN = {
+    "方斯": 0,  # 后续根据实际 OCR 或固定值填入
+    "粉爪币": 0,  # 后续根据实际 OCR 或固定值填入
+}
+
+REWARD_OCR_ROIS: dict[str, tuple[int, int, int, int]] = {
+    "方斯": (684, 238, 112, 20),
+    "粉爪币": (800, 409, 88, 25),
+}
+
+_AMOUNT_LIKE_RE = re.compile(r"[0-9OoQqIl|!SsBbZz,，.￥¥$₩€£¢₽₹₫₱¤＋+\-]+")
+_OCR_DIGIT_TABLE = str.maketrans(
+    {
+        "O": "0",
+        "o": "0",
+        "Q": "0",
+        "q": "0",
+        "I": "1",
+        "l": "1",
+        "|": "1",
+        "!": "1",
+        "S": "5",
+        "s": "5",
+        "B": "8",
+        "b": "8",
+        "Z": "2",
+        "z": "2",
+    }
+)
+_AMOUNT_PREFIX_CHARS = {"x", "X"}
 
 
 class PinkPawRewardTracker:
-    """全局收益追踪器"""
+    """全局收益追踪器（类似 FishCatchLogger 的类变量模式）"""
+
     _success_count: int = 0
     _fail_count: int = 0
-    _total_score: int = 0      # 方斯（藏品价值）
-    _total_coins: int = 0      # 爪爪币
-    _total_points: int = 0     # 粉爪积分
+    _total_fansi: int = 0
+    _total_pinkcoins: int = 0
     _initialized: bool = False
 
     @classmethod
     def reset(cls):
         cls._success_count = 0
         cls._fail_count = 0
-        cls._total_score = 0
-        cls._total_coins = 0
-        cls._total_points = 0
+        cls._total_fansi = 0
+        cls._total_pinkcoins = 0
 
     @classmethod
-    def on_success(cls, score: int = 0, coins: int = 0, points: int = 0):
+    def on_evacuate_success(cls, fansi: int = 0, pinkcoins: int = 0):
+        """撤离成功时调用"""
         cls._success_count += 1
-        cls._total_score += score
-        cls._total_coins += coins
-        cls._total_points += points
+        cls._total_fansi += fansi
+        cls._total_pinkcoins += pinkcoins
 
     @classmethod
-    def on_fail(cls):
+    def on_evacuate_fail(cls):
+        """撤离失败时调用"""
         cls._fail_count += 1
 
     @classmethod
-    def get_msg(cls, success: bool, score: int = 0, coins: int = 0, points: int = 0) -> str:
-        total_runs = cls._success_count + cls._fail_count
-        if success:
-            msg = f"✅ 撤离成功！第{total_runs}局"
-            if score > 0 or coins > 0 or points > 0:
-                msg += f"（本局：方斯{score} 爪爪币{coins} 积分{points}）"
-            msg += f"，累计：方斯{cls._total_score} 爪爪币{cls._total_coins} 积分{cls._total_points}"
-        else:
-            msg = f"❌ 撤离失败。第{total_runs}局（成功{cls._success_count}/失败{cls._fail_count}）"
+    def get_msg(cls) -> str:
+        """获取当前状态的一行消息"""
+        msg = f"第{cls._success_count + cls._fail_count}局"
+        if cls._success_count > 0 or cls._fail_count > 0:
+            msg += f"（成功{cls._success_count}/失败{cls._fail_count}）"
+        if cls._total_fansi > 0:
+            msg += f"，累计方斯{cls._total_fansi}"
+        if cls._total_pinkcoins > 0:
+            msg += f"，累计粉爪币{cls._total_pinkcoins}"
         return msg
 
     @classmethod
     def get_summary(cls) -> str:
-        return f"🐾 粉爪大劫案: {cls._success_count}局成功/{cls._fail_count}局失败 | 累计方斯{cls._total_score} 爪爪币{cls._total_coins} 积分{cls._total_points}"
+        parts = [f"🐾 粉爪大劫案: {cls._success_count}局成功/{cls._fail_count}局失败"]
+        if cls._total_fansi > 0:
+            parts.append(f"方斯{cls._total_fansi}")
+        if cls._total_pinkcoins > 0:
+            parts.append(f"粉爪币{cls._total_pinkcoins}")
+        return " | ".join(parts)
 
 
-def _ocr_number(context: Context, image, roi: list) -> int:
-    """对指定ROI做OCR，提取数字"""
-    reco_detail = context.run_recognition(
-        "PinkPaw_OCR_Reward",
-        image,
-        pipeline_override={
-            "PinkPaw_OCR_Reward": {
-                "recognition": "OCR",
-                "roi": roi,
-                "expected": [],
-                "only_rec": False
-            }
-        }
-    )
-    if reco_detail and reco_detail.all_results:
-        text = reco_detail.all_results[0].text if hasattr(reco_detail.all_results[0], 'text') else ""
-        # 提取数字（去掉逗号等）
-        nums = re.sub(r'[^\d]', '', text)
-        return int(nums) if nums else 0
-    return 0
+def _result_text(result) -> str:
+    if result is None:
+        return ""
+
+    texts: list[str] = []
+    seen: set[str] = set()
+
+    def append_text(item):
+        if item is None:
+            return
+        text = item.text if hasattr(item, "text") else str(item)
+        text = text.strip()
+        if not text or text in seen:
+            return
+        seen.add(text)
+        texts.append(text)
+
+    all_results = getattr(result, "all_results", None) or []
+    for item in all_results:
+        append_text(item)
+
+    return " ".join(texts)
 
 
-def notify_pinkpaw_reward(context: Context, success: bool, fansi: int = 0, pinkcoins: int = 0):
+def _normalize_frame(image):
+    if image is None:
+        return image
+    if not hasattr(image, "shape") or len(image.shape) != 3 or image.shape[2] != 4:
+        return image
+    try:
+        import cv2
+
+        return cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+    except Exception:
+        return image
+
+
+def _parse_amount(text: str) -> int:
+    amounts = []
+    for match in _AMOUNT_LIKE_RE.finditer(text or ""):
+        raw = match.group(0)
+        before = text[match.start() - 1] if match.start() > 0 else ""
+        after = text[match.end()] if match.end() < len(text) else ""
+        if before.isascii() and before.isalpha() and before not in _AMOUNT_PREFIX_CHARS:
+            continue
+        if after.isascii() and after.isalpha():
+            continue
+
+        normalized = raw.translate(_OCR_DIGIT_TABLE)
+        digits = re.sub(r"\D", "", normalized)
+        if not any(ch.isdigit() for ch in raw) and len(digits) < 2:
+            continue
+        if digits:
+            amounts.append(int(digits))
+    return amounts[-1] if amounts else 0
+
+
+def _ocr_amount(context: Context, image, label: str) -> int:
+    try:
+        roi = REWARD_OCR_ROIS[label]
+        result = context.run_recognition_direct(
+            JRecognitionType.OCR, JOCR(roi=roi), _normalize_frame(image)
+        )
+    except Exception as exc:
+        print(f"[PinkPawReward] OCR {label} failed: {exc}")
+        return 0
+
+    text = _result_text(result)
+    amount = _parse_amount(text)
+    if amount <= 0:
+        print(f"[PinkPawReward] OCR {label} no amount, text: {text!r}")
+    return amount
+
+
+def _ocr_reward_amounts(context: Context) -> tuple[int, int]:
+    controller = getattr(getattr(context, "tasker", None), "controller", None)
+    if controller is None:
+        return 0, 0
+
+    try:
+        image = controller.post_screencap().wait().get()
+    except Exception as exc:
+        print(f"[PinkPawReward] screencap failed: {exc}")
+        return 0, 0
+
+    fansi = _ocr_amount(context, image, "方斯")
+    pinkcoins = _ocr_amount(context, image, "粉爪币")
+    return fansi, pinkcoins
+
+
+def notify_pinkpaw_reward(
+    context: Context, success: bool, fansi: int = 0, pinkcoins: int = 0
+):
     """
-    撤离后调用。success=True时会截图OCR读取收益。
-    fansi/pinkcoins 参数保留兼容但优先使用OCR结果。
+    在 pinkpaw_core1/core2 中撤离后调用此函数推送收益。
+    success=True 表示撤离成功，False 表示失败。
     """
     if not PinkPawRewardTracker._initialized:
         PinkPawRewardTracker.reset()
         PinkPawRewardTracker._initialized = True
 
-    score = 0
-    coins = 0
-    points = 0
-
     if success:
-        # 截图（调用方应在结算界面出现后再调用此函数）
-        image = context.tasker.controller.post_screencap().wait().get()
-        # OCR 读取三项收益
-        score = _ocr_number(context, image, [640, 255, 150, 35])    # 方斯（本局藏品价值）
-        points = _ocr_number(context, image, [640, 480, 150, 35])   # 粉爪积分
-        coins = _ocr_number(context, image, [640, 520, 150, 35])    # 爪爪币
-        PinkPawRewardTracker.on_success(score, coins, points)
-    else:
-        PinkPawRewardTracker.on_fail()
+        if fansi <= 0 or pinkcoins <= 0:
+            ocr_fansi, ocr_pinkcoins = _ocr_reward_amounts(context)
+            if fansi <= 0:
+                fansi = ocr_fansi or REWARD_PER_RUN["方斯"]
+            if pinkcoins <= 0:
+                pinkcoins = ocr_pinkcoins or REWARD_PER_RUN["粉爪币"]
 
-    msg = PinkPawRewardTracker.get_msg(success, score, coins, points)
+        PinkPawRewardTracker.on_evacuate_success(fansi, pinkcoins)
+        current_parts = []
+        if fansi > 0:
+            current_parts.append(f"方斯+{fansi}")
+        if pinkcoins > 0:
+            current_parts.append(f"粉爪币+{pinkcoins}")
+        current_msg = f"本局{'，'.join(current_parts)}；" if current_parts else ""
+        msg = f"✅ 撤离成功！{current_msg}{PinkPawRewardTracker.get_msg()}"
+    else:
+        PinkPawRewardTracker.on_evacuate_fail()
+        msg = f"❌ 撤离失败。{PinkPawRewardTracker.get_msg()}"
 
     try:
-        context.override_pipeline({
-            "PinkPawReward_Notify": {
-                "recognition": "DirectHit",
-                "action": "DoNothing",
-                "focus": {
-                    "Node.Action.Starting": msg
-                }
-            }
-        })
-        context.run_task("PinkPawReward_Notify")
-    except Exception:
-        pass
-
-
-@AgentServer.custom_action("pinkpaw_read_reward")
-class PinkPawReadReward(CustomAction):
-    """在确认撤离弹窗上先OCR读取收益，再点击确认撤离"""
-
-    def run(
-        self, context: Context, argv: CustomAction.RunArg
-    ) -> CustomAction.RunResult:
-        if not PinkPawRewardTracker._initialized:
-            PinkPawRewardTracker.reset()
-            PinkPawRewardTracker._initialized = True
-
-        # 当前画面就是确认撤离弹窗，直接截图读取收益
-        image = context.tasker.controller.post_screencap().wait().get()
-        score = _ocr_number(context, image, [430, 395, 130, 35])    # 本局收益（方斯）
-        coins = _ocr_number(context, image, [770, 395, 100, 35])    # 爪爪币
-
-        PinkPawRewardTracker.on_success(score, coins, 0)
-        msg = PinkPawRewardTracker.get_msg(True, score, coins, 0)
-
-        # 推送到前端
-        try:
-            context.override_pipeline({
+        context.override_pipeline(
+            {
                 "PinkPawReward_Notify": {
                     "recognition": "DirectHit",
                     "action": "DoNothing",
-                    "focus": {
-                        "Node.Action.Starting": msg
-                    }
+                    "focus": {"Node.Action.Starting": msg},
                 }
-            })
-            context.run_task("PinkPawReward_Notify")
-        except Exception:
-            pass
-
-        # 点击"确认撤离"按钮
-        context.tasker.controller.post_click(648, 458).wait()
-
-        return CustomAction.RunResult(success=True)
+            }
+        )
+        context.run_task("PinkPawReward_Notify")
+    except Exception:
+        pass
 
 
 @AgentServer.custom_action("pinkpaw_reward_summary")
@@ -168,15 +240,15 @@ class PinkPawRewardSummary(CustomAction):
     ) -> CustomAction.RunResult:
         summary = PinkPawRewardTracker.get_summary()
         try:
-            context.override_pipeline({
-                "PinkPawReward_Summary": {
-                    "recognition": "DirectHit",
-                    "action": "DoNothing",
-                    "focus": {
-                        "Node.Action.Starting": summary
+            context.override_pipeline(
+                {
+                    "PinkPawReward_Summary": {
+                        "recognition": "DirectHit",
+                        "action": "DoNothing",
+                        "focus": {"Node.Action.Starting": summary},
                     }
                 }
-            })
+            )
             context.run_task("PinkPawReward_Summary")
         except Exception:
             pass
