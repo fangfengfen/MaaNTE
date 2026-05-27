@@ -4,8 +4,9 @@
             "name": "PinkPawHeist",
             "label": "粉爪大劫案",
             "entry": "PinkPawHeist_Main",
-            "description": "自动刷取粉爪大劫案，推荐<span style='color:red'>"桌面端-前台"</span>控制器。后台模式实验性支持。",
+            "description": "自动刷取粉爪大劫案。<br>前台模式推荐<span style='color:red'>&ldquo;桌面端-前台&rdquo;</span>控制器；后台模式推荐<span style='color:green'>&ldquo;桌面端-后台&rdquo;</span>控制器。",
             "option": [
+                "PinkPawHeist_Mode",
                 "PinkPawHeist_Loop",
                 "PinkPawHeist_Scheme"
             ],
@@ -20,6 +21,38 @@
         }
     ],
     "option": {
+        "PinkPawHeist_Mode": {
+            "type": "select",
+            "label": "运行模式",
+            "description": "选择前台或后台运行模式。后台模式无需占用前台窗口，但鼠标乱动可能有轻微影响。",
+            "default_case": "Front",
+            "cases": [
+                {
+                    "name": "Front",
+                    "label": "前台模式（推荐）"
+                },
+                {
+                    "name": "Background",
+                    "label": "后台模式",
+                    "pipeline_override": {
+                        "PinkPawHeist_Main": {
+                            "next": [
+                                "PinkPawHeistBG_Loop"
+                            ]
+                        }
+                    },
+                    "option": [
+                        "PinkPawHeist_Mode_BG_desc"
+                    ]
+                }
+            ]
+        },
+        "PinkPawHeist_Mode_BG_desc": {
+            "type": "input",
+            "label": "后台模式说明",
+            "description": "<span style='color:orange'>注意：鼠标乱动可能会有轻微影响，ALT键会中断WASD移动。</span><br>请确保连接方式选择<span style='color:green'>&ldquo;桌面端-后台&rdquo;</span>控制器。",
+            "inputs": []
+        },
         "PinkPawHeist_Loop": {
             "type": "switch",
             "label": "无限循环",

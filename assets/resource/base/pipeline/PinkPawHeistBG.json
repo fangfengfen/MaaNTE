@@ -57,18 +57,18 @@
             "type": "OCR",
             "param": {
                 "expected": [
-                    "小吱",
-                    "小岐",
+                    "^小",
                     "(?i)Chiz",
                     "ちぃちゃん",
                     "치즈"
                 ],
                 "roi": [
-                    800,
-                    380,
-                    35,
-                    25
-                ]
+                    790,
+                    370,
+                    45,
+                    40
+                ],
+                "threshold": 0.1
             }
         },
         "action": {
@@ -167,7 +167,7 @@
         ]
     },
     "PinkPawHeistBG_SkipStory": {
-        "desc": "跳过废话（后台PostMessage点击）",
+        "desc": "跳过废话（后台点击，重复3次确保跳过）",
         "recognition": {
             "type": "DirectHit"
         },
@@ -175,16 +175,22 @@
             "type": "Custom",
             "param": {
                 "custom_action": "pinkpaw_bg_click",
-                "custom_action_param": "{\"x\": 950, \"y\": 340}"
+                "custom_action_param": {
+                    "x": 950,
+                    "y": 340
+                }
             }
         },
         "pre_delay": 2000,
+        "post_delay": 800,
+        "repeat": 3,
+        "repeat_delay": 800,
         "next": [
             "PinkPawHeistBG_AfterStory"
         ]
     },
     "PinkPawHeistBG_AfterStory": {
-        "desc": "详情页，点进入按钮（后台PostMessage点击）",
+        "desc": "详情页，点进入按钮（后台点击）",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -196,10 +202,10 @@
                     "들어가기"
                 ],
                 "roi": [
-                    900,
-                    620,
-                    170,
-                    35
+                    790,
+                    600,
+                    420,
+                    80
                 ]
             }
         },
@@ -213,7 +219,9 @@
         "post_delay": 1000,
         "timeout": 60000,
         "next": [
-            "PinkPawHeistBG_WaitReward"
+            "PinkPawHeistBG_WaitReward",
+            "[JumpBack]RealTimeSkipStoryDialog",
+            "[JumpBack]RealTimeSkipStory"
         ]
     },
     "PinkPawHeistBG_WaitReward": {

@@ -201,45 +201,17 @@ class ActionHelper:
 
     # ---------- 鼠标操作 ----------
     def move_to(self, x, y, duration_ms=None):
+        """后台模式下不移动系统鼠标，仅更新内部坐标记录"""
         self.raise_if_stopped()
-        dx, dy = x - self.mx, y - self.my
-        if dx * dx + dy * dy < 4:
-            self.mx, self.my = x, y
-            return True
-        if duration_ms is None:
-            duration_ms = max(int((dx**2 + dy**2) ** 0.5 / 0.5), 50)
-        override = {
-            "PinkPawHeist_MouseMove": {
-                "action": {
-                    "type": "Swipe",
-                    "param": {
-                        "begin": [self.mx, self.my],
-                        "end": [x, y],
-                        "duration": duration_ms,
-                        "only_hover": True,
-                    },
-                }
-            }
-        }
-        ret = self.ctx.run_task("PinkPawHeist_MouseMove", pipeline_override=override)
-        self.raise_if_stopped()
-        if ret:
-            self.mx, self.my = x, y
-        return ret
+        self.mx, self.my = x, y
+        return True
 
     def click(self, x, y):
+        """后台模式下用 post_click 发送点击，不移动系统鼠标光标"""
         self.raise_if_stopped()
         self._log_trail(f"click({x},{y})")
-        self.move_to(x, y)
-        override = {
-            "PinkPawHeist_Click": {
-                "action": {"type": "Click", "param": {"target": [x, y]}}
-            }
-        }
-        ret = (
-            self.ctx.run_task("PinkPawHeist_Click", pipeline_override=override)
-            is not None
-        )
+        self.mx, self.my = x, y
+        ret = self.ctx.tasker.controller.post_click(x, y).wait().succeeded
         self.raise_if_stopped()
         return ret
 
@@ -306,11 +278,21 @@ class ActionHelper:
         return False
 
     def attack_cycle(self, times=3, loot=False):
-        """执行一轮攻击（Space + 鼠标点击）"""
+        """执行一轮攻击（Space + 后台鼠标点击，不移动系统光标）
+        完全绕开 pipeline，直接用 click_key 发空格 + post_click 发鼠标，
+        避免 Core1_Attack_Mouse 的 Click action 在后台控制器下强制移动系统鼠标光标。
+        """
+        import time
         for _ in range(times):
             self.raise_if_stopped()
-            self.ctx.run_task("PinkPawHeist_Core1_Attack_Space")
+            # 直接发空格键，不走 Core1_Attack_Space pipeline（避免链式触发 Attack_Mouse）
+            self.click_key("Space")
             self.raise_if_stopped()
+            # 用 post_click 直接发送后台鼠标点击，替代 Core1_Attack_Mouse 的 Click action
+            time.sleep(0.1)  # pre_delay 100ms
+            self.ctx.tasker.controller.post_click(640, 360).wait()
+            self.raise_if_stopped()
+            time.sleep(0.25)  # post_delay 250ms
         if loot:
             self.click_key("F")
 
@@ -389,8 +371,8 @@ class ActionHelper:
                 if result is None or result.status.succeeded is False:
                     self.fail_count += 1  # 没找到，失败次数 +1
 
-                    # 连续失败达到 2 次，才抛出异常终止
-                    if self.fail_count >= 2:
+                    # 连续失败达到 4 次，才抛出异常终止
+                    if self.fail_count >= 4:
                         raise StopActionException(
                             "PinkPawHeist_CheckReward 连续 2 次检测失败，终止主流程"
                         )
@@ -1308,7 +1290,8 @@ class PinkPawHeistScheme2Action(CustomAction):
             ah.click_key("Esc")
             ah.delay(1000, check_reward=False)
         ah.delay(1500, check_reward=False)
-        ah.click(775, 473)
+        # 用 post_click 发送后台点击，不移动系统鼠标光标
+        ah.ctx.tasker.controller.post_click(775, 473).wait()
         ah.delay(500, check_reward=False)
-        ah.click(775, 473)
+        ah.ctx.tasker.controller.post_click(775, 473).wait()
         ah.delay(10000, check_reward=False)

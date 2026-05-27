@@ -57,18 +57,18 @@
             "type": "OCR",
             "param": {
                 "expected": [
-                    "小吱",
-                    "小岐", // @i18n-skip
+                    "^小",
                     "(?i)Chiz",
                     "ちぃちゃん",
                     "치즈"
                 ],
                 "roi": [
-                    800,
-                    380,
-                    35,
-                    25
-                ]
+                    790,
+                    370,
+                    45,
+                    40
+                ],
+                "threshold": 0.1
             }
         },
         "action": {
@@ -129,7 +129,7 @@
         ]
     },
     "PinkPawHeist_OCR_Join": {
-        "desc": "OCR识别我要参加，按F选择",
+        "desc": "OCR识别我要参加",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -157,25 +157,26 @@
         },
         "pre_delay": 500,
         "action": {
-            "type": "ClickKey",
-            "param": {
-                "key": 70
-            }
+            "type": "Click"
         },
         "next": [
             "PinkPawHeist_SkipStory"
         ]
     },
     "PinkPawHeist_SkipStory": {
-        "desc": "跳过废话（后台点击）",
+        "desc": "跳过废话",
         "recognition": {
             "type": "DirectHit"
         },
         "action": {
-            "type": "Custom",
+            "type": "Click",
             "param": {
-                "custom_action": "pinkpaw_bg_click",
-                "custom_action_param": "{\"x\": 950, \"y\": 340}"
+                "target": [
+                    890,
+                    320,
+                    120,
+                    40
+                ]
             }
         },
         "pre_delay": 2000,
@@ -184,7 +185,7 @@
         ]
     },
     "PinkPawHeist_AfterStory": {
-        "desc": "详情页，点进入按钮（后台点击）",
+        "desc": "详情页，点进入按钮",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -204,16 +205,14 @@
             }
         },
         "action": {
-            "type": "Custom",
-            "param": {
-                "custom_action": "pinkpaw_bg_click",
-                "custom_action_param": "{\"x\": 985, \"y\": 637}"
-            }
+            "type": "Click"
         },
         "post_delay": 1000,
         "timeout": 60000,
         "next": [
-            "PinkPawHeist_WaitReward"
+            "PinkPawHeist_WaitReward",
+            "[JumpBack]RealTimeSkipStoryDialog",
+            "[JumpBack]RealTimeSkipStory"
         ]
     },
     "PinkPawHeist_WaitReward": {

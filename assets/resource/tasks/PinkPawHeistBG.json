@@ -4,7 +4,7 @@
             "name": "PinkPawHeistBG",
             "label": "粉爪大劫案（后台）",
             "entry": "PinkPawHeistBG_Main",
-            "description": "后台版自动刷取粉爪大劫案，使用<span style='color:green'>"桌面端-后台"</span>控制器，无需前台窗口。<br><span style='color:orange'>注意：鼠标乱动可能会有轻微影响，ALT键会中断WASD移动。</span>",
+            "description": "后台版自动刷取粉爪大劫案，使用<span style='color:green'>&ldquo;桌面端-后台&rdquo;</span>控制器，无需前台窗口。<br><span style='color:orange'>注意：鼠标乱动可能会有轻微影响，ALT键会中断WASD移动。</span>",
             "option": [
                 "PinkPawHeistBG_Loop",
                 "PinkPawHeistBG_Scheme"

@@ -75,8 +75,7 @@
                     250,
                     100,
                     20
-                ]
-            ,
+                ],
                 "roi_offset": [
                     0,
                     0,
@@ -115,8 +114,7 @@
                     120,
                     30
                 ],
-                "threshold": 0.8
-            ,
+                "threshold": 0.8,
                 "roi_offset": [
                     0,
                     0,
@@ -126,7 +124,11 @@
             }
         },
         "action": {
-            "type": "Click"
+            "type": "Custom",
+            "param": {
+                "custom_action": "pinkpaw_bg_click",
+                "custom_action_param": "{\"x\": 779, \"y\": 475}"
+            }
         },
         "timeout": 5000,
         "next": []

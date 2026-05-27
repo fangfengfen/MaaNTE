@@ -108,7 +108,11 @@
             }
         },
         "action": {
-            "type": "Click"
+            "type": "Custom",
+            "param": {
+                "custom_action": "pinkpaw_bg_click",
+                "custom_action_param": "{\"x\": 770, \"y\": 505}"
+            }
         },
         "timeout": 5000,
         "next": []
