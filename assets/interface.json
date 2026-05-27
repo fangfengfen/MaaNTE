@@ -51,7 +51,7 @@
             "win32": {
                 "class_regex": "UnrealWindow",
                 "window_regex": "^\\s*(异环|NTE)\\s*$",
-                "screencap": "PrintWindow",
+                "screencap": "Background",
                 "mouse": "SendMessageWithWindowPos",
                 "keyboard": "PostMessage"
             }

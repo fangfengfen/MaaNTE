@@ -167,19 +167,15 @@
         ]
     },
     "PinkPawHeistBG_SkipStory": {
-        "desc": "跳过废话（后台用Click坐标）",
+        "desc": "跳过废话（后台PostMessage点击）",
         "recognition": {
             "type": "DirectHit"
         },
         "action": {
-            "type": "Click",
+            "type": "Custom",
             "param": {
-                "target": [
-                    890,
-                    320,
-                    120,
-                    40
-                ]
+                "custom_action": "pinkpaw_bg_click",
+                "custom_action_param": "{\"x\": 950, \"y\": 340}"
             }
         },
         "pre_delay": 2000,
@@ -188,7 +184,7 @@
         ]
     },
     "PinkPawHeistBG_AfterStory": {
-        "desc": "详情页，点进入按钮",
+        "desc": "详情页，点进入按钮（后台PostMessage点击）",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -208,14 +204,16 @@
             }
         },
         "action": {
-            "type": "Click"
+            "type": "Custom",
+            "param": {
+                "custom_action": "pinkpaw_bg_click",
+                "custom_action_param": "{\"x\": 985, \"y\": 637}"
+            }
         },
         "post_delay": 1000,
         "timeout": 60000,
         "next": [
-            "PinkPawHeistBG_WaitReward",
-            "[JumpBack]RealTimeSkipStoryDialog",
-            "[JumpBack]RealTimeSkipStory"
+            "PinkPawHeistBG_WaitReward"
         ]
     },
     "PinkPawHeistBG_WaitReward": {

@@ -127,11 +127,6 @@ class ActionHelper:
         except Exception:
             pass
 
-        # 同时打印完整链路到控制台
-        print(f"\n{'='*60}")
-        print(full_msg)
-        print(f"{'='*60}\n")
-
     def is_stopping(self) -> bool:
         tasker = getattr(self.ctx, "tasker", None)
         if tasker is None:
@@ -393,9 +388,6 @@ class ActionHelper:
                 # 判断是否命中
                 if result is None or result.status.succeeded is False:
                     self.fail_count += 1  # 没找到，失败次数 +1
-                    print(
-                        f"警告：未检测到 CheckReward，当前连续失败次数: {self.fail_count}"
-                    )
 
                     # 连续失败达到 2 次，才抛出异常终止
                     if self.fail_count >= 2:
@@ -1283,12 +1275,10 @@ class PinkPawHeistScheme2Action(CustomAction):
                 return CustomAction.RunResult(success=True)
             return CustomAction.RunResult(success=True)
         except TaskerStoppedException as e:
-            print(f"[PinkPawHeist] stopped by tasker: {e}")
             ah.release_controls()
             return CustomAction.RunResult(success=False)
         except StopActionException as e:
             # 捕获到终止异常，直接结束
-            print(f"[PinkPawHeist] 流程提前终止: {e}")
             ah.report_failure(f"流程提前终止: {e}")
             # --- 安全垫：强制松开所有方向键 ---
             ah.key_up("W")
