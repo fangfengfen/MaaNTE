@@ -4,15 +4,13 @@
             "name": "PinkPawHeist",
             "label": "粉爪大劫案",
             "entry": "PinkPawHeist_Main",
-            "description": "自动刷取粉爪大劫案。<br>前台模式推荐<span style='color:red'>&ldquo;桌面端-前台&rdquo;</span>控制器；后台模式推荐<span style='color:green'>&ldquo;桌面端-后台&rdquo;</span>控制器。<br><span style='color:green'>后台控制器将自动使用后台模式（方案二），无需额外设置。</span>",
+            "description": "自动刷取粉爪大劫案。<br>推荐使用<span style='color:red'>&ldquo;桌面端-前台&rdquo;</span>控制器。<br>如需后台运行，请选择<span style='color:green'>&ldquo;粉爪大劫案（后台）&rdquo;</span>任务。",
             "option": [
-                "PinkPawHeist_AutoBG",
                 "PinkPawHeist_Loop",
                 "PinkPawHeist_Scheme"
             ],
             "controller": [
                 "Win32-Front",
-                "Win32-Background",
                 "Win32"
             ],
             "group": [
@@ -21,27 +19,6 @@
         }
     ],
     "option": {
-        "PinkPawHeist_AutoBG": {
-            "type": "input",
-            "label": "后台模式说明",
-            "description": "<span style='color:orange'>注意：鼠标乱动可能会有轻微影响，ALT键会中断WASD移动。</span><br>已自动使用后台模式（固定方案二：藏品层路线）。",
-            "controller": [
-                "Win32-Background"
-            ],
-            "inputs": [],
-            "pipeline_override": {
-                "PinkPawHeist_Main": {
-                    "next": [
-                        "PinkPawHeistBG_Loop"
-                    ]
-                },
-                "PinkPawHeistBG_ExecuteScheme": {
-                    "next": [
-                        "PinkPawHeist_Scheme2"
-                    ]
-                }
-            }
-        },
         "PinkPawHeist_Loop": {
             "type": "switch",
             "label": "无限循环",
@@ -82,12 +59,8 @@
         "PinkPawHeist_Scheme": {
             "type": "select",
             "label": "地图方案",
-            "description": "选择本次战斗的地图移动方案。",
+            "description": "选择本次战斗的地图移动方案。。",
             "default_case": "Core2",
-            "controller": [
-                "Win32-Front",
-                "Win32"
-            ],
             "cases": [
                 {
                     "name": "Core1",

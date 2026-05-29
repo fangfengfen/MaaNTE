@@ -96,14 +96,14 @@ class ActionHelper:
         return ""
 
     def report_failure(self, reason: str):
-        """失败时上报行动链路和截图"""
+        """失败时记录行动链路和截图到日志"""
         screenshot_path = self._save_failure_screenshot(reason)
 
         # 取最后30条链路
         recent_trail = self._trail[-30:]
         trail_text = "\n".join(recent_trail)
 
-        # 构建上报消息
+        # 构建日志消息并输出
         msg_parts = [
             f"❌ 粉爪失败: {reason}",
             f"阶段: {self._current_phase}",
@@ -111,21 +111,7 @@ class ActionHelper:
         if screenshot_path:
             msg_parts.append(f"截图: {os.path.basename(screenshot_path)}")
         msg_parts.append(f"--- 最近行动链路 ---\n{trail_text}")
-        full_msg = "\n".join(msg_parts)
-
-        # 通过 focus 推送（截断到合理长度）
-        display_msg = full_msg[:500] if len(full_msg) > 500 else full_msg
-        try:
-            self.ctx.override_pipeline({
-                "PinkPawHeist_FailReport": {
-                    "recognition": "DirectHit",
-                    "action": "DoNothing",
-                    "focus": {"Node.Action.Starting": display_msg}
-                }
-            })
-            self.ctx.run_task("PinkPawHeist_FailReport")
-        except Exception:
-            pass
+        print(f"[PinkPawHeist] " + "\n".join(msg_parts))
 
     def is_stopping(self) -> bool:
         tasker = getattr(self.ctx, "tasker", None)
